@@ -1,4 +1,5 @@
 """Module containing code for mock photon source propagation."""
+
 from multiprocessing import Pool
 from typing import Union, Tuple, Optional, List
 import math
@@ -15,18 +16,19 @@ from ananke.models.event import Hits
 from ananke.schemas.event import Types
 from olympus.configuration.photon_propagation import MockPhotonPropagatorConfiguration
 from olympus.event_generation.lightyield import fennel_angle_distribution_function
-from olympus.event_generation.photon_propagation.interface import \
-    AbstractPhotonPropagator
+from olympus.event_generation.photon_propagation.interface import (
+    AbstractPhotonPropagator,
+)
 
 
 def photons_per_pmt_to_hits(
-        record_id: int,
-        record_type: str,
-        pmt_photons: np.ndarray,
-        pmt_times: np.ndarray,
-        angular_yield: np.ndarray,
-        pmt_indices: Tuple[int, int, int],
-        rng: np.random.BitGenerator
+    record_id: int,
+    record_type: str,
+    pmt_photons: np.ndarray,
+    pmt_times: np.ndarray,
+    angular_yield: np.ndarray,
+    pmt_indices: Tuple[int, int, int],
+    rng: np.random.BitGenerator,
 ) -> Optional[Hits]:
     """Transforms all the sources of one PMT to hits for that PMT.
 
@@ -45,15 +47,15 @@ def photons_per_pmt_to_hits(
     logging.log(
         logging.INFO,
         "Processed PMT (S: {}, M: {}, P: {}) for Record {}".format(
-            getattr(pmt_indices, 'string_id'),
-            getattr(pmt_indices, 'module_id'),
-            getattr(pmt_indices, 'pmt_id'),
-            record_id
-        )
+            getattr(pmt_indices, "string_id"),
+            getattr(pmt_indices, "module_id"),
+            getattr(pmt_indices, "pmt_id"),
+            record_id,
+        ),
     )
 
     # TODO: Verify the distributions look nice
-    scaled_angular = angular_yield * 1E4
+    scaled_angular = angular_yield * 1e4
     gamma = 2 * np.exp(-0.5 * scaled_angular)
 
     hit_times = []
@@ -63,11 +65,7 @@ def photons_per_pmt_to_hits(
             continue
         # TODO: Check passing of RNG generator
         # TODO: Flatten everything
-        distribution = rng.gamma(
-            gamma[index],
-            gamma[index],
-            photons
-        ) + pmt_times[index]
+        distribution = rng.gamma(gamma[index], gamma[index], photons) + pmt_times[index]
         hit_times.append(distribution)
 
     if len(hit_times) == 0:
@@ -75,12 +73,12 @@ def photons_per_pmt_to_hits(
 
     records_hits_df = pd.DataFrame(
         {
-            'time': np.concatenate(hit_times),
-            'string_id': pmt_indices[0],
-            'module_id': pmt_indices[1],
-            'pmt_id': pmt_indices[2],
-            'record_id': record_id,
-            'type': record_type,
+            "time": np.concatenate(hit_times),
+            "string_id": pmt_indices[0],
+            "module_id": pmt_indices[1],
+            "pmt_id": pmt_indices[2],
+            "record_id": record_id,
+            "type": record_type,
         }
     )
 
@@ -88,10 +86,10 @@ def photons_per_pmt_to_hits(
 
 
 def unit_vector(
-        vector: Union[jnp.ndarray, np.typing.NDArray, Tuple[float, float, float]],
-        axis: Union[int, Tuple[int, int]] = 0
+    vector: Union[jnp.ndarray, np.typing.NDArray, Tuple[float, float, float]],
+    axis: Union[int, Tuple[int, int]] = 0,
 ) -> jnp.ndarray:
-    """ Returns the unit vector of the vector.
+    """Returns the unit vector of the vector.
 
     Args:
         vector: vector to calculate unit vector of.
@@ -104,21 +102,16 @@ def unit_vector(
     norm = jnp.expand_dims(jnp.linalg.norm(vector, axis=axis), axis=axis)
     # TODO: Investigate Bug with jnp division precision
     return jnp.array(
-        np.divide(
-            vector,
-            norm,
-            out=np.zeros_like(vector),
-            where=norm != 0
-        )
+        np.divide(vector, norm, out=np.zeros_like(vector), where=norm != 0)
     )
 
 
 def angle_between(
-        v1: Union[jnp.ndarray, np.typing.NDArray],
-        v2: Union[jnp.ndarray, np.typing.NDArray],
-        axis: Tuple[int, int]
+    v1: Union[jnp.ndarray, np.typing.NDArray],
+    v2: Union[jnp.ndarray, np.typing.NDArray],
+    axis: Tuple[int, int],
 ):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+    """Returns the angle in radians between vectors 'v1' and 'v2'::
 
             >>> angle_between((1, 0, 0), (0, 1, 0))
             1.5707963267948966
@@ -138,17 +131,13 @@ def angle_between(
     v1_u = unit_vector(v1, axis=axis[0])
     v2_u = unit_vector(v2, axis=axis[1])
 
-    return jnp.arccos(jnp.clip(jnp.einsum('...i, ...i', v1_u, v2_u), -1.0, 1.0))
+    return jnp.arccos(jnp.clip(jnp.einsum("...i, ...i", v1_u, v2_u), -1.0, 1.0))
 
 
 class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfiguration]):
     """Class enabling basic photon propagation to detector modules."""
 
-    def __init__(
-            self,
-            *args,
-            **kwargs
-    ) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # TODO: Migrate Angle and Wavelength away
         self.resolution = self.configuration.resolution
@@ -173,8 +162,7 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
 
     def __calculate_orthogonals(self, source_orientations: jnp.ndarray) -> jnp.ndarray:
         orthogonal = jnp.cross(
-            jnp.expand_dims(self.pmt_orientations, axis=1),
-            source_orientations
+            jnp.expand_dims(self.pmt_orientations, axis=1), source_orientations
         )
         return jnp.cross(source_orientations, orthogonal)
 
@@ -183,43 +171,34 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
         return jnp.arccos(jnp.clip(dot_products, -1.0, 1.0))
 
     def __calculate_pmt_to_source_angles(
-            self,
-            pmt_to_source: jnp.ndarray
+        self, pmt_to_source: jnp.ndarray
     ) -> jnp.ndarray:
         per_source_and_pmt_unit = unit_vector(pmt_to_source, axis=2)
         per_pmt_unit = unit_vector(self.pmt_orientations, axis=1)
-        dot_products = jnp.einsum(
-            'ijk,ik->ij',
-            per_source_and_pmt_unit,
-            per_pmt_unit
-        )
+        dot_products = jnp.einsum("ijk,ik->ij", per_source_and_pmt_unit, per_pmt_unit)
 
         return self.__arccos(dot_products=dot_products)
 
     @classmethod
     def __calculate_source_orientation_angles(
-            cls,
-            pmt_to_source: jnp.ndarray,
-            source_orientations: jnp.ndarray
+        cls, pmt_to_source: jnp.ndarray, source_orientations: jnp.ndarray
     ) -> jnp.ndarray:
         per_source_and_pmt_unit = unit_vector(pmt_to_source, axis=2)
         source_orientation_unit = unit_vector(source_orientations, axis=1)
         dot_products = jnp.einsum(
-            'ijk,jk->ij',
-            per_source_and_pmt_unit,
-            source_orientation_unit
+            "ijk,jk->ij", per_source_and_pmt_unit, source_orientation_unit
         )
 
         return cls.__arccos(dot_products=dot_products)
 
     @staticmethod
     def __get_ellipsis_mask(
-            pmt_orientations: jnp.ndarray,
-            pmt_to_source: jnp.ndarray,
-            pmt_to_source_angles: jnp.ndarray,
-            pmt_opening_angles_length: jnp.ndarray,
-            max_opening_angles_length: int,
-            source_orientations: jnp.ndarray
+        pmt_orientations: jnp.ndarray,
+        pmt_to_source: jnp.ndarray,
+        pmt_to_source_angles: jnp.ndarray,
+        pmt_opening_angles_length: jnp.ndarray,
+        max_opening_angles_length: int,
+        source_orientations: jnp.ndarray,
     ) -> jnp.ndarray:
         """Calculates the mask of the ellipsis for each pmt and source.
 
@@ -238,86 +217,79 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
         # first find pmt normal projection on target area
         unit_pmt_to_source = unit_vector(pmt_to_source, axis=2)
         pmt_normal_to_source_normal_distance = jnp.einsum(
-            'ijk,ik->ij',
-            unit_pmt_to_source,
-            pmt_orientations
+            "ijk,ik->ij", unit_pmt_to_source, pmt_orientations
         )
         projected_pmt_normal = jnp.subtract(
             jnp.expand_dims(pmt_orientations, axis=1),
             jnp.einsum(
-                'ij,ijk->ijk',
-                pmt_normal_to_source_normal_distance,
-                unit_pmt_to_source
-            )
+                "ij,ijk->ijk", pmt_normal_to_source_normal_distance, unit_pmt_to_source
+            ),
         )
         # second get second vector of target area basis orthogonal to source direction
         second_target_area_basis = jnp.cross(source_orientations, pmt_to_source)
         # third calculate ellipsis properties
         ellipsis_a_axis = pmt_opening_angles_length / 2
         ellipsis_b_axis = jnp.einsum(
-            'ij,ij->ij',
-            jnp.cos(pmt_to_source_angles),
-            ellipsis_a_axis
+            "ij,ij->ij", jnp.cos(pmt_to_source_angles), ellipsis_a_axis
         )
         ellipsis_angles = angle_between(
-            projected_pmt_normal,
-            second_target_area_basis,
-            axis=(2, 2)
+            projected_pmt_normal, second_target_area_basis, axis=(2, 2)
         )
 
         center_index = int(jnp.floor(max_opening_angles_length / 2))
-        target_indices = jnp.arange(max_opening_angles_length) \
-                             .astype('int16') - center_index
-        target_full = jnp.einsum('i,j->ij', target_indices, target_indices)
+        target_indices = (
+            jnp.arange(max_opening_angles_length).astype("int16") - center_index
+        )
+        target_full = jnp.einsum("i,j->ij", target_indices, target_indices)
 
         sin_angles = jnp.sin(ellipsis_angles)
         cos_angles = jnp.cos(ellipsis_angles)
 
         squared_target = jnp.square(target_indices)
         first_ellipsis_new = jnp.einsum(
-            'ij,k->ijk',
+            "ij,k->ijk",
             jnp.add(
                 jnp.square(jnp.divide(sin_angles, ellipsis_a_axis)),
-                jnp.square(jnp.divide(cos_angles, ellipsis_b_axis))
+                jnp.square(jnp.divide(cos_angles, ellipsis_b_axis)),
             ),
-            squared_target
+            squared_target,
         )
 
         last_ellipsis_new = jnp.einsum(
-            'ij,k->ijk',
+            "ij,k->ijk",
             jnp.add(
                 jnp.square(jnp.divide(cos_angles, ellipsis_a_axis)),
-                jnp.square(jnp.divide(sin_angles, ellipsis_b_axis))
+                jnp.square(jnp.divide(sin_angles, ellipsis_b_axis)),
             ),
-            squared_target
+            squared_target,
         )
 
         middle_multiply = jnp.einsum(
-            'ij,ij->ij',
-            jnp.einsum('ij,ij->ij', sin_angles, cos_angles),
+            "ij,ij->ij",
+            jnp.einsum("ij,ij->ij", sin_angles, cos_angles),
             jnp.subtract(
                 jnp.reciprocal(jnp.square(ellipsis_a_axis)),
-                jnp.reciprocal(jnp.square(ellipsis_b_axis))
-            )
+                jnp.reciprocal(jnp.square(ellipsis_b_axis)),
+            ),
         )
 
         # TODO: Check Ellipsis Axis
         return (
-                       jnp.expand_dims(first_ellipsis_new, axis=2) +
-                       2 * jnp.einsum('ij,kl->ijkl', middle_multiply, target_full) +
-                       jnp.expand_dims(last_ellipsis_new, axis=3)
-               ) <= 1
+            jnp.expand_dims(first_ellipsis_new, axis=2)
+            + 2 * jnp.einsum("ij,kl->ijkl", middle_multiply, target_full)
+            + jnp.expand_dims(last_ellipsis_new, axis=3)
+        ) <= 1
 
     def __get_ellipsis_yield(
-            self,
-            source_angle_distribution: jnp.ndarray,
-            number_of_pmts: int,
-            angle_indices: jnp.ndarray,
-            pmt_to_source: jnp.ndarray,
-            pmt_to_source_angles: jnp.ndarray,
-            pmt_opening_angles_length: jnp.ndarray,
-            max_opening_angles_length: int,
-            source_orientations: jnp.ndarray
+        self,
+        source_angle_distribution: jnp.ndarray,
+        number_of_pmts: int,
+        angle_indices: jnp.ndarray,
+        pmt_to_source: jnp.ndarray,
+        pmt_to_source_angles: jnp.ndarray,
+        pmt_opening_angles_length: jnp.ndarray,
+        max_opening_angles_length: int,
+        source_orientations: jnp.ndarray,
     ) -> jnp.ndarray:
         """Calculates the mask of the ellipsis for each pmt and source.
 
@@ -337,15 +309,15 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
         max_memory_usage = self.configuration.max_memory_usage  # 2gb in bytes
 
         # sources*pmts*angles^2*itemsize
-        necessary_memory = pmt_opening_angles_length.size * \
-                           max_opening_angles_length ** 2 * 4
+        necessary_memory = (
+            pmt_opening_angles_length.size * max_opening_angles_length**2 * 4
+        )
 
         steps = math.ceil(necessary_memory / max_memory_usage)
         step_size = math.ceil(number_of_pmts / steps)
 
         angular_distribution_per_pmt = jnp.take(
-            jnp.tile(source_angle_distribution, (number_of_pmts, 1)),
-            angle_indices
+            jnp.tile(source_angle_distribution, (number_of_pmts, 1)), angle_indices
         )
 
         yield_list = []
@@ -359,51 +331,49 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
                 pmt_to_source=pmt_to_source[start:end],
                 pmt_to_source_angles=pmt_to_source_angles[start:end],
                 pmt_opening_angles_length=pmt_opening_angles_length[start:end],
-                max_opening_angles_length=max_opening_angles_length
+                max_opening_angles_length=max_opening_angles_length,
             )
 
             yield_list.append(
                 jnp.einsum(
-                    '...ij,...i->...',
+                    "...ij,...i->...",
                     ellipsis_mask,
-                    angular_distribution_per_pmt[start:end]
+                    angular_distribution_per_pmt[start:end],
                 )
             )
 
         return jnp.concatenate(yield_list)
 
     def __calculate_angular_yield(
-            self,
-            number_of_pmts: int,
-            number_of_sources: int,
-            source_orientations: jnp.ndarray,
-            source_angle_distribution: jnp.ndarray,
-            pmt_to_source: jnp.ndarray,
-            pmt_to_source_distances: jnp.ndarray,
+        self,
+        number_of_pmts: int,
+        number_of_sources: int,
+        source_orientations: jnp.ndarray,
+        source_angle_distribution: jnp.ndarray,
+        pmt_to_source: jnp.ndarray,
+        pmt_to_source_distances: jnp.ndarray,
     ) -> jnp.ndarray:
         pmt_to_source_angles = self.__calculate_pmt_to_source_angles(pmt_to_source)
         source_orientation_angles = self.__calculate_source_orientation_angles(
-            - pmt_to_source,  # we want to know angle between source and the pmt.
-            source_orientations
+            -pmt_to_source,  # we want to know angle between source and the pmt.
+            source_orientations,
         )
         pmt_opening_angles = 2 * jnp.arcsin(
-            jnp.divide(
-                self.pmt_radius[:, jnp.newaxis],
-                pmt_to_source_distances
-            )
+            jnp.divide(self.pmt_radius[:, jnp.newaxis], pmt_to_source_distances)
         )
         pmt_opening_angles_length = pmt_opening_angles / jnp.pi * self.resolution
         source_orientation_angles_index = jnp.rint(
             source_orientation_angles / jnp.pi * self.resolution
-        ).astype('int16')
+        ).astype("int16")
         # this is the maximum size of the arrays to consider
         max_opening_angle_length = int(jnp.ceil(jnp.max(pmt_opening_angles_length)))
-        angle_indices = jnp.indices((max_opening_angle_length,)) - \
-                        jnp.rint(max_opening_angle_length / 2)
+        angle_indices = jnp.indices((max_opening_angle_length,)) - jnp.rint(
+            max_opening_angle_length / 2
+        )
         angle_indices = jnp.add(
             jnp.tile(angle_indices, (number_of_pmts, number_of_sources, 1)),
-            jnp.expand_dims(source_orientation_angles_index, axis=2)
-        ).astype('int16')
+            jnp.expand_dims(source_orientation_angles_index, axis=2),
+        ).astype("int16")
         # Get Angular distribution values for each pmt
 
         yield_per_source_and_pmt = self.__get_ellipsis_yield(
@@ -414,48 +384,34 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
             pmt_to_source=pmt_to_source,
             pmt_to_source_angles=pmt_to_source_angles,
             pmt_opening_angles_length=pmt_opening_angles_length,
-            max_opening_angles_length=max_opening_angle_length
-
+            max_opening_angles_length=max_opening_angle_length,
         )
         # TODO: Check Integral
 
         # we only have yield at pmts facing the source
-        mask_condition = (pmt_to_source_angles < jnp.pi / 2).astype('int16')
+        mask_condition = (pmt_to_source_angles < jnp.pi / 2).astype("int16")
 
         yield_per_source_and_pmt = jnp.einsum(
-            'ij, ij->ij',
-            mask_condition,
-            yield_per_source_and_pmt
+            "ij, ij->ij", mask_condition, yield_per_source_and_pmt
         )
 
         return yield_per_source_and_pmt
 
     def __calculate_distance_yield(
-            self,
-            pmt_to_source_distances: jnp.ndarray
+        self, pmt_to_source_distances: jnp.ndarray
     ) -> jnp.ndarray:
-        absorption_length = self.medium.get_absolute_length(
-            self.default_wavelengths
-        )
+        absorption_length = self.medium.get_absolute_length(self.default_wavelengths)
 
-        return jnp.exp(
-            -1.0 * jnp.divide(pmt_to_source_distances, absorption_length)
-        )
+        return jnp.exp(-1.0 * jnp.divide(pmt_to_source_distances, absorption_length))
 
-    def _get_angle_distribution(
-            self, energy: float, particle_id: int
-    ) -> jnp.ndarray:
+    def _get_angle_distribution(self, energy: float, particle_id: int) -> jnp.ndarray:
 
         angles = jnp.linspace(0, 180, self.resolution)
         n_photon = self.medium.get_refractive_index(self.default_wavelengths)
         angle_distribution = fennel_angle_distribution_function(
-            energy=energy,
-            particle_id=particle_id
+            energy=energy, particle_id=particle_id
         )
-        source_angle_distribution = angle_distribution(
-            angles,
-            n_photon
-        )
+        source_angle_distribution = angle_distribution(angles, n_photon)
 
         source_angle_distribution = jnp.array(source_angle_distribution)
 
@@ -464,23 +420,17 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
         normation_factor = normation_factor * self.resolution
 
         source_angle_distribution = jnp.divide(
-            source_angle_distribution,
-            normation_factor
+            source_angle_distribution, normation_factor
         )
 
         return source_angle_distribution
 
     def propagate(
-            self,
-            collection: Collection,
-            record_type: Optional[
-                Union[
-                    List[Types],
-                    Types
-                ]
-            ] = None,
-            use_multiprocessing: bool = True,
-            **kwargs
+        self,
+        collection: Collection,
+        record_type: Optional[Union[List[Types], Types]] = None,
+        use_multiprocessing: bool = True,
+        **kwargs
     ) -> None:
         """Propagates a given collection.
 
@@ -496,13 +446,11 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
         if records is not None:
             records = records.get_by_record_ids(record_ids_with_sources)
         if records is None:
-            raise ValueError('No records to propagate')
+            # raise ValueError('No records to propagate')
+            logging.info("No records to propagate, skipping")
+            return
         number_of_records = len(records)
-        logging.info(
-            'Starting to propagate {} records.'.format(
-                number_of_records
-            )
-        )
+        logging.info("Starting to propagate {} records.".format(number_of_records))
 
         number_of_pmts = self.detector.number_of_pmts
 
@@ -510,23 +458,20 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
             for record_index, record in enumerate(records.itertuples(index=False)):
                 try:
                     logging.info(
-                        'Starting with record {} of {} records.'.format(
-                            record_index + 1,
-                            number_of_records
+                        "Starting with record {} of {} records.".format(
+                            record_index + 1, number_of_records
                         )
                     )
-                    record_id = getattr(record, 'record_id')
-                    record_type = getattr(record, 'type')
-                    record_energy = getattr(record, 'energy')
-                    record_particle_id = getattr(record, 'particle_id')
+                    record_id = getattr(record, "record_id")
+                    record_type = getattr(record, "type")
+                    record_energy = getattr(record, "energy")
+                    record_particle_id = getattr(record, "particle_id")
                     record_sources = collection.storage.get_sources(
                         record_ids=record_id
                     )
                     if record_sources is None:
                         logging.info(
-                            'No sources for record {}. Skipping!'.format(
-                                record_id
-                            )
+                            "No sources for record {}. Skipping!".format(record_id)
                         )
                         pbar.update()
                         continue
@@ -553,14 +498,13 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
                     # 1. Calculate angle between PMT and Source direction
                     expanded_pmt_positions = jnp.tile(
                         jnp.expand_dims(self.pmt_positions, axis=1),
-                        (1, number_of_sources, 1)
+                        (1, number_of_sources, 1),
                     )
                     pmt_to_source = source_locations - expanded_pmt_positions
                     pmt_to_source_distances = jnp.linalg.norm(pmt_to_source, axis=2)
 
                     source_angle_distribution = self._get_angle_distribution(
-                        energy=record_energy,
-                        particle_id=record_particle_id
+                        energy=record_energy, particle_id=record_particle_id
                     )
 
                     # 2. Mask sources in direction of PMT (180°)
@@ -570,7 +514,7 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
                         source_orientations=source_orientations,
                         pmt_to_source=pmt_to_source,
                         source_angle_distribution=source_angle_distribution,
-                        pmt_to_source_distances=pmt_to_source_distances
+                        pmt_to_source_distances=pmt_to_source_distances,
                     )
                     # 3. Calculate Yield based on distance
                     distance_yield = self.__calculate_distance_yield(
@@ -582,20 +526,18 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
 
                     # 4. Calculate Number of Photons
                     total_yield = jnp.multiply(angular_yield, distance_yield)
-                    jnp.einsum('ij,i->ij', total_yield, efficiency_yield)
+                    jnp.einsum("ij,i->ij", total_yield, efficiency_yield)
                     photons_per_pmt_per_source = jnp.multiply(
-                        total_yield,
-                        source_photons.T
+                        total_yield, source_photons.T
                     )
                     photons_per_pmt_per_source = jnp.rint(
                         photons_per_pmt_per_source
-                    ).astype(
-                        'int16'
-                    )
+                    ).astype("int16")
 
                     # 5. Calculate Arrival Time
-                    travel_time = pmt_to_source_distances / self.medium.get_c_medium_photons(
-                        self.default_wavelengths
+                    travel_time = (
+                        pmt_to_source_distances
+                        / self.medium.get_c_medium_photons(self.default_wavelengths)
                     )
                     times_per_pmt_per_source = jnp.add(travel_time, source_times.T)
 
@@ -613,7 +555,7 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
                                     np.array(times_per_pmt_per_source[pmt_index]),
                                     np.array(angular_yield[pmt_index]),
                                     self.pmt_indices.iloc[pmt_index],
-                                    self.rng
+                                    self.rng,
                                 )
                             )
 
@@ -623,13 +565,12 @@ class MockPhotonPropagator(AbstractPhotonPropagator[MockPhotonPropagatorConfigur
                     else:
                         with Pool() as pool:
                             hits_list += pool.starmap(
-                                photons_per_pmt_to_hits,
-                                multiprocessing_args
+                                photons_per_pmt_to_hits, multiprocessing_args
                             )
 
                     record_hits = Hits.concat(hits_list)
                     if record_hits is not None:
                         collection.storage.set_hits(record_hits)
                 except RuntimeError:
-                    logging.warning('Tried to allocate to much GPU memory.')
+                    logging.warning("Tried to allocate to much GPU memory.")
                 pbar.update()
